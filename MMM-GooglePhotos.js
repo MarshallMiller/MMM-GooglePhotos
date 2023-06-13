@@ -27,6 +27,12 @@ Module.register("MMM-GooglePhotos", {
 
   suspended: false,
 
+  getScripts: function() {
+    return [
+      'moment.js',
+    ]
+  },
+
   getStyles: function () {
     return ["MMM-GooglePhotos.css"];
   },
