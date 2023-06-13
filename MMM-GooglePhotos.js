@@ -11,6 +11,7 @@ Module.register("MMM-GooglePhotos", {
     condition: {
       fromDate: null, // Or "2018-03", RFC ... format available
       toDate: null, // Or "2019-12-25",
+      video: false,
       minWidth: null, // Or 400
       maxWidth: null, // Or 8000
       minHeight: null, // Or 400
@@ -103,8 +104,7 @@ Module.register("MMM-GooglePhotos", {
       this.index = 0;
     }
     let target = this.scanned[this.index];
-    let url = target.baseUrl + `=w${this.config.showWidth}-h${this.config.showHeight}`;
-    this.ready(url, target);
+    this.ready(target);
     this.index++;
     if (this.index >= this.scanned.length) {
       this.index = 0;
@@ -115,10 +115,18 @@ Module.register("MMM-GooglePhotos", {
     }
   },
 
-  ready: function (url, target) {
-    let hidden = document.createElement("img");
+  ready: function (target) {
+    let hidden;
+    let url;
+    if (target.mediaMetadata.hasOwnProperty("video")) {
+      hidden = document.createElement("video");
+      url = target.baseUrl + '=dv';
+    } else {
+      hidden = document.createElement("img");
+      url = target.baseUrl + `=w${this.config.showWidth}-h${this.config.showHeight}`;
+    }
     hidden.onerror = () => {
-      console.log("[GPHOTO] Image load fails.");
+      console.log("[GPHOTO] Load failed: ", hidden.error);
       this.sendSocketNotification("IMAGE_LOAD_FAIL", url);
     };
     hidden.onload = () => {
@@ -172,9 +180,10 @@ Module.register("MMM-GooglePhotos", {
       infoText.appendChild(albumTitle);
       infoText.appendChild(photoTime);
       info.appendChild(infoText);
-      console.log("[GPHOTO] Image loaded:", url);
+      console.log("[GPHOTO] Loaded:", url);
       this.sendSocketNotification("IMAGE_LOADED", url);
     };
+    console.log("[GPHOTO] Loading:", url);
     hidden.src = url;
   },
 

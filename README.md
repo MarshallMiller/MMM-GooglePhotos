@@ -75,6 +75,7 @@ node generate_token_v2.js
 		condition: {
 			fromDate: null, // Or "2018-03", RFC ... format available
 			toDate: null, // Or "2019-12-25",
+			video: true, // or false to display videos
 			minWidth: null, // Or 400
 			maxWidth: null, // Or 8000
 			minHeight: null, // Or 400
