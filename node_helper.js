@@ -6,6 +6,20 @@ const https = require("https");
 const moment = require("moment");
 const GP = require("./GPhotos.js");
 const authOption = require("./google_auth.json");
+const ffmpeg = require('fluent-ffmpeg');
+const ffmpegPath = require('ffmpeg-static');
+const ffprobePath = require('ffprobe-static');
+const stream = require('stream');
+
+ffmpeg.setFfmpegPath(ffmpegPath);
+ffmpeg.getAvailableFormats(function(err, formats) {
+  console.log('ffmpeg available formats:');
+  console.dir(formats);
+});
+ffmpeg.getAvailableCodecs(function(err, codecs) {
+  console.log('ffmpeg available codecs:');
+  console.dir(codecs);
+});
 
 let GPhotos = null;
 
@@ -235,6 +249,55 @@ module.exports = NodeHelper.create({
 
   getImageList: function () {
     let condition = this.config.condition;
+    let notify_callback = (a, b) => {
+      this.sendSocketNotification(a, b);
+    };
+    let downloadVideo = (mediaItem, url, start_time) => {
+      if (start_time === undefined) {
+        let now = new Date();
+        start_time = now.getTime();
+      }
+      if (url === undefined) {
+        url = mediaItem.baseUrl + "=dv";
+      }
+      console.log("downloading video ", mediaItem.id);
+      const request = https.get(url, (response) => {
+        const { statusCode } = response;
+        if (statusCode == 302) {
+		      const new_url = response.headers['location'];
+          console.log("redirected download for ", mediaItem.id);
+          return downloadVideo(mediaItem, new_url, start_time);
+	      }
+        if (statusCode != 200) {
+          console.log('video download failed');
+          return;
+        }
+
+        let source = new stream.PassThrough();
+        let download_path = path.resolve(__dirname, "cache", "video.webm");
+        //let dest = fs.createWriteStream(download_path);
+
+        let trans = ffmpeg(source)
+          .videoCodec('libvpx-vp9')
+          .videoBitrate('250')
+          .fps(18)
+          .outputOptions('-vf scale=w=800:h=480:force_original_aspect_ratio=decrease')
+          .output(download_path)
+          .on('progress', function() { console.log('ffmpeg progress'); })
+          .on('end', function() {
+            let now = new Date();
+            let end_time = now.getTime();
+            console.log('ffmpeg finished in ', (end_time - start_time) / 1000);
+            mediaItem.resolved = "/modules/MMM-GooglePhotos/cache/video.webm";
+            notify_callback("NEW_VIDEO", mediaItem);
+          })
+          .run();
+
+			  response.pipe(source);
+        response.on('end', function() { source.end(); console.log('finished receiving video'); });
+      });
+    };
+
     let photoCondition = (photo) => {
       if (!photo.hasOwnProperty("mediaMetadata")) return false;
       let data = photo.mediaMetadata;
@@ -242,7 +305,11 @@ module.exports = NodeHelper.create({
         if (!condition.video || data.video.status != 'READY') {
           return false;
         }
-      } else if (!data.hasOwnProperty("photo")) {
+
+        downloadVideo(photo);
+
+
+      } else {
         return false;
       }
       let ct = moment(data.creationTime);
@@ -311,6 +378,7 @@ module.exports = NodeHelper.create({
       resolve(step());
     });
   },
+
 
   stop: function () {
     clearInterval(this.scanTimer);
