@@ -120,6 +120,11 @@ Module.register("MMM-GooglePhotos", {
     let url;
     if (target.mediaMetadata.hasOwnProperty("video")) {
       hidden = document.createElement("video");
+      hidden.setAttribute("height", "480");
+      hidden.setAttribute("width", "800");
+      hidden.setAttribute("muted", "");
+      hidden.setAttribute("autoplay", "");
+      hidden.setAttribute("loop", "");
       url = target.baseUrl + '=dv';
     } else {
       hidden = document.createElement("img");
@@ -129,13 +134,16 @@ Module.register("MMM-GooglePhotos", {
       console.log("[GPHOTO] Load failed: ", hidden.error);
       this.sendSocketNotification("IMAGE_LOAD_FAIL", url);
     };
-    hidden.onload = () => {
+    hidden.oncanplay = () => {
+      console.log("Loaded");
+      this.sendSocketNotification("IMAGE_LOADED", url);
       let back = document.getElementById("GPHOTO_BACK");
       let current = document.getElementById("GPHOTO_CURRENT");
       //current.classList.remove("animated")
       let dom = document.getElementById("GPHOTO");
       back.style.backgroundImage = `url(${url})`;
-      current.style.backgroundImage = `url(${url})`;
+      //current.style.backgroundImage = `url(${url})`;
+      current.replaceChildren(hidden);
       current.classList.add("animated");
       let info = document.getElementById("GPHOTO_INFO");
       let album = this.albums.find((a) => {
@@ -194,6 +202,7 @@ Module.register("MMM-GooglePhotos", {
     back.id = "GPHOTO_BACK";
     let current = document.createElement("div");
     current.id = "GPHOTO_CURRENT";
+    current.setAttribute("text-align", "center");
     if (this.data.position.search("fullscreen") === -1) {
       if (this.config.showWidth) wrapper.style.width = this.config.showWidth + "px";
       if (this.config.showHeight) wrapper.style.height = this.config.showHeight + "px";
